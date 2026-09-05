@@ -28,7 +28,7 @@ const W=128,H=64,$=id=>document.getElementById(id),baseTopic=()=> $('channel').v
 $('channel').value='noa-gps-pieton-v2';
 let mqttClient=null,watchId=null,heading=null,destination=null,meMarker=null,destMarker=null,routeLine=null,route=null,routeSteps=[],currentStep=0;
 const clean=s=>s.normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[\u0027\u2019]/g,' ').replace(/[^a-zA-Z0-9 ?!.,:-]/g,'');
-const FONT5x7={' ':[0,0,0],'!':[0,0,95,0,0],'?':[2,1,81,9,6],'.':[0,96,96,0,0],"'":[5,3],',':[0,96,112,32,0],':':[0,102,102,0,0],'-':[8,8,8,8,8],'0':[62,81,73,69,62],'1':[0,66,127,64,0],'2':[66,97,81,73,70],'3':[33,65,69,75,49],'4':[24,20,18,127,16],'5':[39,69,69,69,57],'6':[60,74,73,73,48],'7':[1,113,9,5,3],'8':[54,73,73,73,54],'9':[6,73,73,41,30],'A':[126,9,9,9,126],'B':[127,73,73,73,54],'C':[62,65,65,65,34],'D':[127,65,65,34,28],'E':[127,73,73,65,65],'F':[127,9,9,1,1],'G':[62,65,73,73,58],'H':[127,8,8,8,127],'I':[0,65,127,65,0],'J':[32,64,65,63,1],'K':[127,8,20,34,65],'L':[127,64,64,64,64],'M':[127,2,12,2,127],'N':[127,4,8,16,127],'O':[62,65,65,65,62],'P':[127,9,9,9,6],'Q':[62,65,81,33,94],'R':[127,9,25,41,70],'S':[38,73,73,73,50],'T':[1,1,127,1,1],'U':[63,64,64,64,63],'V':[31,32,64,32,31],'W':[63,64,60,64,63],'X':[99,20,8,20,99],'Y':[7,8,112,8,7],'Z':[97,81,73,69,67],'a':[32,84,84,84,120],'b':[127,72,68,68,56],'c':[56,68,68,68,40],'d':[56,68,68,72,127],'e':[56,84,84,84,24],'f':[8,126,9,1,2],'g':[152,164,164,164,120],'h':[127,8,4,4,120],'i':[0,68,125,64,0],'j':[32,64,68,61,0],'k':[127,16,40,68,0],'l':[0,65,127,64,0],'m':[124,4,24,4,120],'n':[124,8,4,4,120],'o':[56,68,68,68,56],'p':[252,36,36,36,24],'q':[24,36,36,36,252],'r':[124,8,4,4,8],'s':[72,84,84,84,36],'t':[4,62,68,68,32],'u':[60,64,64,32,124],'v':[28,32,64,32,28],'w':[60,64,56,64,60],'x':[68,40,16,40,68],'y':[156,160,160,160,124],'z':[68,100,84,76,68]};
+const FONT5x7={' ':[0,0,0],'!':[0,0,95,0,0],'?':[2,1,81,9,6],'.':[0,96,96,0,0],"'":[5,3],',':[0,96,112,32,0],':':[0,102,102,0,0],'-':[8,8,8,8,8],'0':[62,81,73,69,62],'1':[0,66,127,64,0],'2':[66,97,81,73,70],'3':[33,65,69,75,49],'4':[24,20,18,127,16],'5':[39,69,69,69,57],'6':[60,74,73,73,48],'7':[1,113,9,5,3],'8':[54,73,73,73,54],'9':[6,73,73,41,30],'A':[126,9,9,9,126],'B':[127,73,73,73,54],'C':[62,65,65,65,34],'D':[127,65,65,34,28],'E':[127,73,73,65,65],'F':[127,9,9,1,1],'G':[62,65,73,73,58],'H':[127,8,8,8,127],'I':[0,65,127,65,0],'J':[32,64,65,63,1],'K':[127,8,20,34,65],'L':[127,64,64,64,64],'M':[127,2,12,2,127],'N':[127,4,8,16,127],'O':[62,65,65,65,62],'P':[127,9,9,9,6],'Q':[62,65,81,33,94],'R':[127,9,25,41,70],'S':[38,73,73,73,50],'T':[1,1,127,1,1],'U':[63,64,64,64,63],'V':[31,32,64,32,31],'W':[63,64,56,64,60],'X':[99,20,8,20,99],'Y':[7,8,112,8,7],'Z':[97,81,73,69,67],'a':[32,84,84,84,120],'b':[127,72,68,68,56],'c':[56,68,68,68,40],'d':[56,68,68,72,127],'e':[56,84,84,84,24],'f':[8,126,9,1,2],'g':[152,164,164,164,120],'h':[127,8,4,4,120],'i':[0,68,125,64,0],'j':[32,64,68,61,0],'k':[127,16,40,68,0],'l':[0,65,127,64,0],'m':[124,4,24,4,120],'n':[124,8,4,4,120],'o':[56,68,68,68,56],'p':[252,36,36,36,24],'q':[24,36,36,36,252],'r':[124,8,4,4,8],'s':[72,84,84,84,36],'t':[4,62,68,68,32],'u':[60,64,64,32,124],'v':[28,32,64,32,28],'w':[60,64,56,64,60],'x':[68,40,16,40,68],'y':[156,160,160,160,124],'z':[68,100,84,76,68]};
 const DIGIT_FONT={'0':[62,65,65,65,62],'1':[0,66,127,64,0],'2':[98,81,73,69,70],'3':[34,65,73,73,54],'4':[24,20,18,127,16],'5':[47,73,73,73,49],'6':[60,74,73,73,48],'7':[1,1,113,9,7],'8':[54,73,73,73,54],'9':[6,73,73,41,30]};
 function textScale(size){const value=Number(size)||1;if(value===18)return 1;if(value<=4)return Math.max(1,Math.min(4,value));const quarter=Math.round((1+(value-8)/4)*4)/4;return Math.max(1,Math.min(4,quarter))}
 function bitmapColumns(char){return DIGIT_FONT[char]||FONT5x7[char]||FONT5x7[' ']}
@@ -43,7 +43,8 @@ function distance(a,b,c,d){const x=rad(c-a),y=rad(d-b),q=Math.sin(x/2)**2+Math.c
 function bearing(a,b,c,d){return(deg(Math.atan2(Math.sin(rad(d-b))*Math.cos(rad(c)),Math.cos(rad(a))*Math.sin(rad(c))-Math.sin(rad(a))*Math.cos(rad(c))*Math.cos(rad(d-b))))+360)%360}
 const map=L.map('map').setView([44.558,4.755],15);L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'© OpenStreetMap'}).addTo(map);
 
-// Recupere la position initiale au chargement pour la recherche d'adresse
+let lastPosition=null;
+
 if (navigator.geolocation) {
   navigator.geolocation.getCurrentPosition(p => {
     lastPosition = p;
@@ -68,7 +69,6 @@ map.on('click', async e => {
   await setDestinationLatLng(e.latlng);
 });
 
-// Auto-completion d'adresse en direct (frappe dynamique) localisee
 let searchTimeout = null;
 $('addressInput').addEventListener('input', () => {
   clearTimeout(searchTimeout);
@@ -81,19 +81,19 @@ $('addressInput').addEventListener('input', () => {
     return;
   }
 
-  // Anti-rebond (300ms) pour eviter de surcharger l'API a chaque touche
   searchTimeout = setTimeout(async () => {
     try {
-      let url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=5`;
+      let url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=7&addressdetails=1&dedupe=1`;
       
-      // Si la position de l'utilisateur est connue, on ajoute une zone d'orientation (viewbox)
       if (lastPosition) {
         const lat = lastPosition.coords.latitude;
         const lon = lastPosition.coords.longitude;
-        // Bounding box d'environ 50km autour du centre actuel
-        const minLon = lon - 0.5, maxLon = lon + 0.5;
-        const minLat = lat - 0.5, maxLat = lat + 0.5;
-        url += `&viewbox=${minLon},${maxLat},${maxLon},${minLat}`;
+        
+        const delta = 0.5;
+        const minLon = lon - delta, maxLon = lon + delta;
+        const minLat = lat - delta, maxLat = lat + delta;
+        
+        url += `&lat=${lat}&lon=${lon}&viewbox=${minLon},${maxLat},${maxLon},${minLat}`;
       }
 
       const res = await fetch(url);
@@ -108,13 +108,20 @@ $('addressInput').addEventListener('input', () => {
       list.style.display = 'flex';
       data.forEach(item => {
         const li = document.createElement('li');
-        li.textContent = item.display_name;
+        
+        const addr = item.address || {};
+        const road = addr.road || addr.pedestrian || addr.suburb || item.display_name.split(',')[0];
+        const city = addr.city || addr.town || addr.village || addr.municipality || '';
+        const postcode = addr.postcode ? ` (${addr.postcode})` : '';
+        
+        li.textContent = city ? `${road}, ${city}${postcode}` : item.display_name;
+        
         li.onclick = async () => {
-          const lat = parseFloat(item.lat);
-          const lon = parseFloat(item.lon);
-          const latlng = L.latLng(lat, lon);
+          const itemLat = parseFloat(item.lat);
+          const itemLon = parseFloat(item.lon);
+          const latlng = L.latLng(itemLat, itemLon);
           map.setView(latlng, 16);
-          $('addressInput').value = item.display_name.split(',')[0];
+          $('addressInput').value = li.textContent;
           await setDestinationLatLng(latlng);
           list.style.display = 'none';
         };
@@ -130,7 +137,7 @@ function maneuverLabel(step){const type=step?.maneuver?.type,modifier=step?.mane
 function updateRouteInstruction(lat,lon){if(!routeSteps.length)return null;let best=currentStep,bestDistance=Infinity;for(let i=Math.max(0,currentStep);i<routeSteps.length;i++){const location=routeSteps[i].maneuver?.location;if(!location)continue;const d=distance(lat,lon,location[1],location[0]);if(d<bestDistance){bestDistance=d;best=i}if(i>currentStep+2&&d>bestDistance+80)break}currentStep=Math.max(currentStep,best);const step=routeSteps[currentStep],location=step?.maneuver?.location;if(!step||!location)return null;return{distance:distance(lat,lon,location[1],location[0]),angle:maneuverAngle(step),label:maneuverLabel(step),modifier:step.maneuver?.modifier||'straight'}}
 function orientation(e){heading=e.webkitCompassHeading!==undefined?e.webkitCompassHeading:e.alpha===null?null:(360-e.alpha)%360}
 function updateGpsElements(){if(!lastPosition||!destination)return;const a=lastPosition.coords.latitude,b=lastPosition.coords.longitude,instruction=updateRouteInstruction(a,b),d=instruction?instruction.distance:distance(a,b,destination.lat,destination.lng);let angle=instruction?instruction.angle:bearing(a,b,destination.lat,destination.lng),alignment=instruction?.angle||bearing(a,b,destination.lat,destination.lng);if(heading!==null){if(!instruction)angle=(angle-heading+360)%360;alignment=(alignment-heading+360)%360}items.filter(e=>e.type==='gps').forEach(e=>{e.distance=d;e.angle=angle;e.alignmentAngle=alignment;e.turn=instruction?.modifier||'straight';e.instruction=instruction?.label||'Itineraire en attente'});if(instruction)$('gpsStatus').textContent=instruction.label+' dans '+Math.round(d)+' m';draw()}
-let lastPosition=null;
+
 $('start').onclick=async()=>{if(!connectMqtt())return;if(typeof DeviceOrientationEvent!=='undefined'&&typeof DeviceOrientationEvent.requestPermission==='function'){try{await DeviceOrientationEvent.requestPermission()}catch(error){}}window.addEventListener('deviceorientation',orientation,true);window.addEventListener('deviceorientationabsolute',orientation,true);watchId=navigator.geolocation.watchPosition(position,error=>{$('gpsStatus').textContent='Erreur GPS : '+error.message},{enableHighAccuracy:true,maximumAge:1000,timeout:15000});$('start').disabled=true;$('stop').disabled=false;$('gpsStatus').textContent='Recherche de la position...'};
 async function position(p){lastPosition=p;const a=p.coords.latitude,b=p.coords.longitude;if(meMarker)meMarker.setLatLng([a,b]);else{meMarker=L.circleMarker([a,b],{radius:6,color:'blue'}).addTo(map);map.setView([a,b])}if(!destination){$('gpsStatus').textContent='Choisissez une destination.';return}if(!route)await requestRoute(p);updateGpsElements();const gps=items.find(e=>e.type==='gps');publish(gpsTopic(),JSON.stringify({d:Math.round(gps?.distance||0),a:Math.round(gps?.angle||0),turn:gps?.turn||'straight',instruction:gps?.instruction||''}));}
 $('stop').onclick=()=>{if(watchId!==null){navigator.geolocation.clearWatch(watchId);watchId=null}window.removeEventListener('deviceorientation',orientation,true);window.removeEventListener('deviceorientationabsolute',orientation,true);$('start').disabled=false;$('stop').disabled=true;$('gpsStatus').textContent='GPS arrêté';setState(mqttClient&&mqttClient.connected?'MQTT sécurisé':'Déconnecté',mqttClient&&mqttClient.connected?'on':'')};
