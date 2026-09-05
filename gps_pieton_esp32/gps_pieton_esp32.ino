@@ -18,6 +18,8 @@ int currentAngle = 0;
 unsigned long lastMsgTime = 0;
 uint8_t frameBuffer[128 * 64 / 8];
 bool frameReady = false;
+bool frameMode = false;
+unsigned long lastFrameTime = 0;
 
 void drawArrow(int cx, int cy, int len, float angleDeg) {
   float rad = angleDeg * PI / 180.0;
@@ -52,6 +54,8 @@ void mqttCallback(char* topic, byte* payload, unsigned int length) {
     if (length == sizeof(frameBuffer)) {
       memcpy(frameBuffer, payload, sizeof(frameBuffer));
       frameReady = true;
+      frameMode = true;
+      lastFrameTime = millis();
     }
     return;
   }
@@ -61,7 +65,7 @@ void mqttCallback(char* topic, byte* payload, unsigned int length) {
   currentDistance = doc["d"] | -1;
   currentAngle = doc["a"] | 0;
   lastMsgTime = millis();
-  updateDisplay();
+  if (!frameMode) updateDisplay();
 }
 
 void connectWifi() {
@@ -103,8 +107,15 @@ void loop() {
     u8g2.sendBuffer();
   }
 
+  // Les trames de l'éditeur ont priorité sur le rendu GPS intégré.
+  // Si l'éditeur s'arrête, le mode GPS autonome reprend après un court délai.
+  if (frameMode && millis() - lastFrameTime > 2000) {
+    frameMode = false;
+    updateDisplay();
+  }
+
   // Si aucune donnée reçue depuis 10s, on repasse en "en attente"
-  if (currentDistance >= 0 && millis() - lastMsgTime > 10000) {
+  if (!frameMode && currentDistance >= 0 && millis() - lastMsgTime > 10000) {
     currentDistance = -1;
     updateDisplay();
   }
