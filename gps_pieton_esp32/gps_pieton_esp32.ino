@@ -28,6 +28,7 @@ void mqttCallback(char* topic, byte* payload, unsigned int length) {
     return;
   }
 
+  // Le GPS sert aux donnees de navigation; l OLED est rendu par les trames binaires.
   StaticJsonDocument<128> doc;
   if (deserializeJson(doc, payload, length)) return;
   currentDistance = doc["d"] | -1;
