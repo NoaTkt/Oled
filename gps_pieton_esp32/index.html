@@ -15,12 +15,9 @@
 <header><h1>GPS pieton + OLED</h1><nav class="tabs"><button type="button" class="tab active" data-view="navView">Navigation</button><button type="button" class="tab" data-view="editorView">Editeur OLED</button><button type="button" class="tab" data-view="promptView">Prompteur</button></nav><div class="status"><span id="dot" class="dot"></span><span id="state">Déconnecté</span></div></header>
 <main id="navView" class="active nav"><div id="map" class="map"></div><section class="card gpspanel"><h2>Destination GPS</h2>
 <label>Chercher une adresse :
-  <div class="row" style="margin-top:4px;">
-    <input id="addressInput" type="text" placeholder="Saisir une adresse..." style="flex:1;">
-    <button id="searchAddress" type="button">OK</button>
-  </div>
+  <input id="addressInput" type="text" placeholder="Saisir une adresse..." style="margin-top:4px;" autocomplete="off">
 </label>
-<ul id="addressResults" class="list" style="display:none; max-height:100px;"></ul>
+<ul id="addressResults" class="list" style="display:none; max-height:140px;"></ul>
 <label>Broker MQTT sécurisé<input id="broker" value="wss://broker.hivemq.com:8884/mqtt"></label><label>Identifiant du topic<input id="channel" value="noa-gps-pieton"></label><p id="help">Cliquez sur la carte ou saisissez une adresse pour choisir une destination.</p><div class="row"><button id="start" class="primary">Démarrer le GPS</button><button id="stop" disabled>Arrêter le GPS</button></div><div id="gpsStatus">GPS inactif</div><p class="hint">Cette page sert uniquement à choisir la destination et à démarrer ou arrêter le suivi.</p></section></main>
 <main id="editorView"><div class="editor"><section class="card side"><h2>Ajouter</h2><div class="tools"><button data-add="text">Texte</button><button data-add="time">Heure</button><button data-add="date">Date</button><button data-add="timer">Minuteur</button><button data-add="rect">Rectangle</button><button data-add="line">Ligne</button><button data-add="gps">GPS</button></div><button id="addImage">Image</button><input id="imageFile" class="hidden" type="file" accept="image/*"><h2>Elements</h2><ul id="elements" class="list"></ul></section><section class="card canvasbox"><h2>Aperçu 128 x 64</h2><canvas id="stage" class="oled" width="128" height="64"></canvas><div class="row"><button id="send" class="primary">Envoyer à l'écran</button><label class="check"><input id="auto" type="checkbox" checked> temps réel</label><label class="check"><input id="invert" type="checkbox"> inverser</label></div><p class="hint">Cliquez-glissez un élément pour le déplacer. Utilisez la poignée en bas à droite pour le redimensionner.</p></section><section class="card props"><h2>Propriétés</h2><div id="noProps">Sélectionnez un élément.</div><div id="propsForm"></div></section></div></main>
 <main id="promptView"><section class="card prompt-panel"><h2>Prompteur</h2><textarea id="promptText" placeholder="Ecrivez votre texte ici...">Votre texte ici</textarea><div class="prompt-controls"><label>Vitesse : <span id="speedValue">20 px/s</span><input id="speed" type="range" min="2" max="120" step="1" value="20"></label><label>Taille : <span id="fontValue">1.00x</span><input id="font" type="range" min="1" max="4" step="0.25" value="1"></label><label>Defilement<select id="direction"><option value="up">Du bas vers le haut</option><option value="left">De gauche vers la droite</option></select></label><div class="prompt-buttons"><button id="speedMinus" type="button">-</button><button id="play" class="primary" type="button">Lecture</button><button id="pause" type="button">Pause</button><button id="reset" type="button">Reset</button><button id="speedPlus" type="button">+</button></div></div><canvas id="promptStage" class="oled" width="128" height="64"></canvas></section></main>
@@ -46,6 +43,14 @@ function distance(a,b,c,d){const x=rad(c-a),y=rad(d-b),q=Math.sin(x/2)**2+Math.c
 function bearing(a,b,c,d){return(deg(Math.atan2(Math.sin(rad(d-b))*Math.cos(rad(c)),Math.cos(rad(a))*Math.sin(rad(c))-Math.sin(rad(a))*Math.cos(rad(c))*Math.cos(rad(d-b))))+360)%360}
 const map=L.map('map').setView([44.558,4.755],15);L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'© OpenStreetMap'}).addTo(map);
 
+// Recupere la position initiale au chargement pour la recherche d'adresse
+if (navigator.geolocation) {
+  navigator.geolocation.getCurrentPosition(p => {
+    lastPosition = p;
+    map.setView([p.coords.latitude, p.coords.longitude], 15);
+  }, () => {});
+}
+
 async function setDestinationLatLng(latlng) {
   destination = latlng;
   if(destMarker) destMarker.setLatLng(destination);
@@ -63,42 +68,61 @@ map.on('click', async e => {
   await setDestinationLatLng(e.latlng);
 });
 
-// Recherche d'adresse via OpenStreetMap Nominatim
-async function searchAddress() {
+// Auto-completion d'adresse en direct (frappe dynamique) localisee
+let searchTimeout = null;
+$('addressInput').addEventListener('input', () => {
+  clearTimeout(searchTimeout);
   const query = $('addressInput').value.trim();
-  if(!query) return;
-  $('help').textContent = 'Recherche de l adresse...';
-  try {
-    const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}`);
-    const data = await res.json();
-    const list = $('addressResults');
+  const list = $('addressResults');
+  
+  if (query.length < 3) {
+    list.style.display = 'none';
     list.innerHTML = '';
-    if(!data.length) {
-      $('help').textContent = 'Aucune adresse trouvee.';
-      list.style.display = 'none';
-      return;
-    }
-    list.style.display = 'flex';
-    data.slice(0, 5).forEach(item => {
-      const li = document.createElement('li');
-      li.textContent = item.display_name;
-      li.onclick = async () => {
-        const lat = parseFloat(item.lat);
-        const lon = parseFloat(item.lon);
-        const latlng = L.latLng(lat, lon);
-        map.setView(latlng, 16);
-        await setDestinationLatLng(latlng);
-        list.style.display = 'none';
-      };
-      list.appendChild(li);
-    });
-    $('help').textContent = 'Selectionnez l adresse dans la liste ci-dessus.';
-  } catch(e) {
-    $('help').textContent = 'Erreur lors de la recherche d adresse.';
+    return;
   }
-}
-$('searchAddress').onclick = searchAddress;
-$('addressInput').onkeydown = e => { if(e.key==='Enter') searchAddress(); };
+
+  // Anti-rebond (300ms) pour eviter de surcharger l'API a chaque touche
+  searchTimeout = setTimeout(async () => {
+    try {
+      let url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=5`;
+      
+      // Si la position de l'utilisateur est connue, on ajoute une zone d'orientation (viewbox)
+      if (lastPosition) {
+        const lat = lastPosition.coords.latitude;
+        const lon = lastPosition.coords.longitude;
+        // Bounding box d'environ 50km autour du centre actuel
+        const minLon = lon - 0.5, maxLon = lon + 0.5;
+        const minLat = lat - 0.5, maxLat = lat + 0.5;
+        url += `&viewbox=${minLon},${maxLat},${maxLon},${minLat}`;
+      }
+
+      const res = await fetch(url);
+      const data = await res.json();
+      list.innerHTML = '';
+
+      if (!data.length) {
+        list.style.display = 'none';
+        return;
+      }
+
+      list.style.display = 'flex';
+      data.forEach(item => {
+        const li = document.createElement('li');
+        li.textContent = item.display_name;
+        li.onclick = async () => {
+          const lat = parseFloat(item.lat);
+          const lon = parseFloat(item.lon);
+          const latlng = L.latLng(lat, lon);
+          map.setView(latlng, 16);
+          $('addressInput').value = item.display_name.split(',')[0];
+          await setDestinationLatLng(latlng);
+          list.style.display = 'none';
+        };
+        list.appendChild(li);
+      });
+    } catch(e) {}
+  }, 300);
+});
 
 async function requestRoute(positionValue){if(!destination)return;const origin=positionValue.coords||positionValue;try{const url='https://routing.openstreetmap.de/routed-foot/route/v1/driving/'+origin.longitude+','+origin.latitude+';'+destination.lng+','+destination.lat+'?steps=true&overview=full&geometries=geojson';const response=await fetch(url);if(!response.ok)throw new Error('Service itineraire indisponible');const data=await response.json();if(data.code!=='Ok'||!data.routes?.length)throw new Error('Aucun itineraire trouve');route=data.routes[0];routeSteps=route.legs[0]?.steps||[];currentStep=routeSteps.length>1?1:0;if(routeLine)map.removeLayer(routeLine);routeLine=L.geoJSON(route.geometry,{style:{color:'#5b8cff',weight:5,opacity:.8}}).addTo(map);$('help').textContent='Itineraire trouve : '+Math.round(route.distance)+' m';updateGpsElements()}catch(error){route=null;routeSteps=[];$('help').textContent='Itineraire indisponible : '+error.message}}
 function maneuverAngle(step){const modifier=step?.maneuver?.modifier||'straight';return modifier.includes('left')?-90:modifier.includes('right')?90:modifier==='uturn'?180:0}
