@@ -18,44 +18,12 @@ int currentAngle = 0;
 unsigned long lastMsgTime = 0;
 uint8_t frameBuffer[128 * 64 / 8];
 bool frameReady = false;
-bool frameMode = false;
-unsigned long lastFrameTime = 0;
-
-void drawArrow(int cx, int cy, int len, float angleDeg) {
-  float rad = angleDeg * PI / 180.0;
-  // 0° = flèche vers le haut de l'écran
-  int tipX = cx + len * sin(rad);
-  int tipY = cy - len * cos(rad);
-  float r1 = (angleDeg + 150) * PI / 180.0;
-  float r2 = (angleDeg - 150) * PI / 180.0;
-  int b1X = cx + (len*0.6) * sin(r1), b1Y = cy - (len*0.6) * cos(r1);
-  int b2X = cx + (len*0.6) * sin(r2), b2Y = cy - (len*0.6) * cos(r2);
-  u8g2.drawTriangle(tipX, tipY, b1X, b1Y, b2X, b2Y);
-}
-
-void updateDisplay() {
-  u8g2.clearBuffer();
-  if (currentDistance < 0) {
-    u8g2.setFont(u8g2_font_6x12_tf);
-    u8g2.drawStr(10, 32, "En attente...");
-  } else {
-    drawArrow(64, 26, 20, currentAngle);
-    u8g2.setFont(u8g2_font_7x14_tf);
-    char buf[16];
-    snprintf(buf, sizeof(buf), "%d m", currentDistance);
-    int w = u8g2.getStrWidth(buf);
-    u8g2.drawStr(64 - w/2, 58, buf);
-  }
-  u8g2.sendBuffer();
-}
 
 void mqttCallback(char* topic, byte* payload, unsigned int length) {
   if (strcmp(topic, MQTT_FRAME_TOPIC) == 0) {
     if (length == sizeof(frameBuffer)) {
       memcpy(frameBuffer, payload, sizeof(frameBuffer));
       frameReady = true;
-      frameMode = true;
-      lastFrameTime = millis();
     }
     return;
   }
@@ -65,7 +33,6 @@ void mqttCallback(char* topic, byte* payload, unsigned int length) {
   currentDistance = doc["d"] | -1;
   currentAngle = doc["a"] | 0;
   lastMsgTime = millis();
-  if (!frameMode) updateDisplay();
 }
 
 void connectWifi() {
@@ -93,7 +60,8 @@ void setup() {
   u8g2.begin();
   connectWifi();
   connectMqtt();
-  updateDisplay();
+  u8g2.clearBuffer();
+  u8g2.sendBuffer();
 }
 
 void loop() {
@@ -107,16 +75,4 @@ void loop() {
     u8g2.sendBuffer();
   }
 
-  // Les trames de l'éditeur ont priorité sur le rendu GPS intégré.
-  // Si l'éditeur s'arrête, le mode GPS autonome reprend après un court délai.
-  if (frameMode && millis() - lastFrameTime > 2000) {
-    frameMode = false;
-    updateDisplay();
-  }
-
-  // Si aucune donnée reçue depuis 10s, on repasse en "en attente"
-  if (!frameMode && currentDistance >= 0 && millis() - lastMsgTime > 10000) {
-    currentDistance = -1;
-    updateDisplay();
-  }
 }
