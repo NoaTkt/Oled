@@ -147,36 +147,44 @@ function bounds(e){if(e.type==='text'){const scale=textScale(e.size),w=Math.max(
 function drawArrow(e){const arrowSize=e._manualArrowSize?e.arrowSize:(e.size||18),digitSize=e.digitSize||1,cx=e.x+arrowSize/2,top=e.y+2,bottom=e.y+arrowSize-2,turnY=e.y+arrowSize*.55,turn=e.turn||'straight';ctx.lineWidth=1;ctx.lineCap='round';ctx.lineJoin='round';ctx.beginPath();ctx.moveTo(cx,bottom);if(turn.includes('left')){ctx.lineTo(cx,turnY);ctx.lineTo(e.x+3,turnY)}else if(turn.includes('right')){ctx.lineTo(cx,turnY);ctx.lineTo(e.x+arrowSize-3,turnY)}else{ctx.lineTo(cx,top+5)}ctx.stroke();const tipX=turn.includes('left')?e.x+2:turn.includes('right')?e.x+arrowSize-2:cx,tipY=turn==='straight'?top:turnY;ctx.beginPath();if(turn.includes('left')){ctx.moveTo(tipX,tipY);ctx.lineTo(tipX+4,tipY-3);ctx.lineTo(tipX+4,tipY+3)}else if(turn.includes('right')){ctx.moveTo(tipX,tipY);ctx.lineTo(tipX-4,tipY-3);ctx.lineTo(tipX-4,tipY+3)}else{ctx.moveTo(tipX,tipY);ctx.lineTo(tipX-3,tipY+4);ctx.lineTo(tipX+3,tipY+4)}ctx.closePath();ctx.fill();const label=e.distance==null?'---':Math.round(e.distance)+' m';drawBitmapScaled(ctx,label,cx-bitmapWidth(label)*digitSize/2,e.y+arrowSize+1,digitSize)}
 
 function drawAlignmentArrow(e){
-  const size=e.alignmentSize||8;
-  const mainSize=e._manualArrowSize?e.arrowSize:(e.size||18);
-  const cx=e.x+mainSize+2+size/2+(e.alignmentX||0);
-  const cy=e.y+size/2+(e.alignmentY||0);
+  const size = e.alignmentSize || 8;
+  const mainSize = e._manualArrowSize ? e.arrowSize : (e.size || 18);
+  const cx = e.x + mainSize + 2 + size / 2 + (e.alignmentX || 0);
+  const cy = e.y + size / 2 + (e.alignmentY || 0);
   
-  let angle=(e.alignmentAngle||0)%360;
-  if(angle<0) angle+=360;
+  let ang = Number(e.alignmentAngle) || 0;
+  const turn = e.turn || 'straight';
 
-  const rad=radAngle(angle);
-  const ux=Math.sin(rad);
-  const uy=-Math.cos(rad);
-  const px=Math.cos(rad);
-  const py=Math.sin(rad);
+  // Projection exacte écran : inverse la direction horizontale en cas de virage à gauche
+  const rad = radAngle(ang);
+  let ux = Math.sin(rad);
+  let uy = -Math.cos(rad);
 
-  const len=Math.max(3,size/2-1);
-  const tipX=cx+len*ux;
-  const tipY=cy+len*uy;
-  const baseX=tipX-ux*5;
-  const baseY=tipY-uy*5;
+  if (turn.includes('left') || ang < 0) {
+    ux = -Math.abs(ux);
+  } else if (turn.includes('right')) {
+    ux = Math.abs(ux);
+  }
 
-  ctx.lineWidth=1;
+  const px = -uy;
+  const py = ux;
+
+  const len = Math.max(3, size / 2 - 1);
+  const tipX = cx + len * ux;
+  const tipY = cy + len * uy;
+  const baseX = tipX - ux * 5;
+  const baseY = tipY - uy * 5;
+
+  ctx.lineWidth = 1;
   ctx.beginPath();
-  ctx.moveTo(cx-len*.45*ux,cy-len*.45*uy);
-  ctx.lineTo(tipX,tipY);
+  ctx.moveTo(cx - len * 0.45 * ux, cy - len * 0.45 * uy);
+  ctx.lineTo(tipX, tipY);
   ctx.stroke();
 
   ctx.beginPath();
-  ctx.moveTo(tipX,tipY);
-  ctx.lineTo(baseX+px*3,baseY+py*3);
-  ctx.lineTo(baseX-px*3,baseY-py*3);
+  ctx.moveTo(tipX, tipY);
+  ctx.lineTo(baseX + px * 3, baseY + py * 3);
+  ctx.lineTo(baseX - px * 3, baseY - py * 3);
   ctx.closePath();
   ctx.fill();
 }
@@ -188,7 +196,7 @@ function pack(c){const d=c.getContext('2d').getImageData(0,0,W,H).data,b=new Uin
 function field(label,key,e,min=0){const l=document.createElement('label');const i=document.createElement('input');i.type=key==='arrowSize'?'range':'number';i.value=e[key]??0;i.min=min;i.max=key==='arrowSize'?40:'';i.step=key==='arrowSize'?1:'';const value=document.createElement('span');value.textContent=key==='arrowSize'?(i.value+' px'):'';i.oninput=()=>{e[key]=+i.value;if(key==='arrowSize'){e._manualArrowSize=true;value.textContent=i.value+' px'}draw()};l.append(document.createTextNode(label+' : '),value,i);return l}
 function sizeField(label,key,e){const l=document.createElement('label');const value=document.createElement('span');const slider=document.createElement('input');const initial=textScale(e[key]);value.textContent=initial.toFixed(2)+'x';slider.type='range';slider.min='1';slider.max='4';slider.step='0.25';slider.value=initial;slider.oninput=()=>{e[key]=Number(slider.value);value.textContent=Number(slider.value).toFixed(2)+'x';if(key==='arrowSize')e._manualArrowSize=true;draw()};l.append(document.createTextNode(label+' : '),value,slider);return l}
 function pixelSizeField(label,key,e){const l=document.createElement('label');const value=document.createElement('span');const slider=document.createElement('input');const initial=Math.max(8,Math.min(40,Number(e[key])||18));value.textContent=initial+' px';slider.type='range';slider.min='8';slider.max='40';slider.step='1';slider.value=initial;slider.oninput=()=>{e[key]=Number(slider.value);value.textContent=slider.value+' px';if(key==='arrowSize')e._manualArrowSize=true;draw()};l.append(document.createTextNode(label+' : '),value,slider);return l}
-function refresh(){const list=$('elements');list.innerHTML='';items.forEach(e=>{const li=document.createElement('li');li.className=e.id===selectedId?'sel':'';li.textContent=e.type+' #'+e.id;const remove=document.createElement('button');remove.textContent='x';remove.onclick=event=>{event.stopPropagation();items=items.filter(item=>item!==e);selectedId=null;refresh();draw()};li.appendChild(remove);li.onclick=()=>{selectedId=e.id;refresh()};list.appendChild(li)});const e=items.find(item=>item.id===selectedId),form=$('propsForm');form.innerHTML='';$('noProps').classList.toggle('hidden',!!e);if(!e)return;form.append(field('X','x',e));form.append(field('Y','y',e));if(['text','time','date','timer'].includes(e.type)){if(e.type==='text'){const l=document.createElement('label');l.textContent='Texte';const i=document.createElement('textarea');i.value=e.text;i.oninput=()=>{e.text=i.value;draw()};l.append(i);form.append(l);form.append(field('Largeur de la zone','w',e,10))}form.append(sizeField('Taille du texte','size',e))}if(e.type==='gps'){form.append(field('Taille de la flèche','arrowSize',e,8));form.append(sizeField('Taille des chiffres','digitSize',e));const info=document.createElement('p');info.className='hint';info.textContent='La flèche utilise une taille en pixels. Les chiffres utilisent quatre niveaux bitmap lisibles.';form.append(info)}if(['rect','line','image'].includes(e.type)){form.append(field('Largeur','w',e,1));form.append(field('Hauteur','h',e,1))}}
+function refresh(){const list=$('elements');list.innerHTML='';items.forEach(e=>{const li=document.createElement('li');li.className=e.id===selectedId?'sel':'';li.textContent=e.type+' #'+e.id;const remove=document.createElement('button');remove.textContent='x';remove.onclick=event=>{event.stopPropagation();items=items.filter(item=>item!==e);selectedId=null;refresh();draw()};li.appendChild(remove);li.onclick=()=>{selectedId=e.id;refresh()};list.appendChild(li)});const e=items.find(item=>item.id===selectedId),form=$('propsForm');form.innerHTML='';$('noProps').classList.toggle('hidden',!!e);if(!e)return;form.append(field('X','x',e));form.append(field('Y','y',e));if(['text','time','date','timer'].includes(e.type)){if(e.type==='text'){const l=document.createElement('label');l.textContent='Texte';const i=document.createElement('textarea');i.value=e.text;i.oninput=()=>{e.text=i.value;draw()};l.append(i);form.append(field('Largeur de la zone','w',e,10))}form.append(sizeField('Taille du texte','size',e))}if(e.type==='gps'){form.append(field('Taille de la flèche','arrowSize',e,8));form.append(sizeField('Taille des chiffres','digitSize',e));const info=document.createElement('p');info.className='hint';info.textContent='La flèche utilise une taille en pixels. Les chiffres utilisent quatre niveaux bitmap lisibles.';form.append(info)}if(['rect','line','image'].includes(e.type)){form.append(field('Largeur','w',e,1));form.append(field('Hauteur','h',e,1))}}
 document.querySelectorAll('[data-add]').forEach(button=>button.onclick=()=>{const e={id:nextId++,type:button.dataset.add,x:5,y:5,size:18,w:30,h:15,distance:null,angle:0};if(e.type==='text')e.text='Mon texte';if(e.type==='timer')e.end=Date.now()+60000;items.push(e);selectedId=e.id;refresh();draw()});$('addImage').onclick=()=>$('imageFile').click();$('imageFile').onchange=event=>{const file=event.target.files[0],image=new Image();if(!file)return;image.onload=()=>{items.push({id:nextId++,type:'image',x:0,y:0,w:32,h:32,image});selectedId=nextId-1;refresh();draw()};image.src=URL.createObjectURL(file);event.target.value=''};$('send').onclick=()=>send(canvas);$('invert').onchange=draw;
 function pointer(event){const r=canvas.getBoundingClientRect(),source=event.touches?event.touches[0]:event;return{x:Math.floor((source.clientX-r.left)*W/r.width),y:Math.floor((source.clientY-r.top)*H/r.height)}}function beginDrag(event){if(event.cancelable)event.preventDefault();const p=pointer(event),selected=items.find(e=>e.id===selectedId),selectedBounds=selected&&bounds(selected),onHandle=selectedBounds&&p.x>=selectedBounds.x+selectedBounds.w-10&&p.y>=selectedBounds.y+selectedBounds.h-10;if(onHandle){drag={e:selected,resize:true,dx:p.x-selected.x,dy:p.y-selected.y,w:selected.w||selectedBounds.w,h:selected.h||selectedBounds.h,size:selected.size||18};return}const hit=[...items].reverse().find(e=>{const b=bounds(e);return p.x>=b.x-3&&p.x<=b.x+b.w+5&&p.y>=b.y-3&&p.y<=b.y+b.h+5});selectedId=hit?.id||null;if(hit){const b=bounds(hit);drag={e:hit,resize:p.x>=b.x+b.w-10&&p.y>=b.y+b.h-10,dx:p.x-hit.x,dy:p.y-hit.y,w:hit.w||b.w,h:hit.h||b.h,size:hit.size||18}}refresh();draw()}function moveDrag(event){if(!drag)return;if(event.cancelable)event.preventDefault();const p=pointer(event),e=drag.e;if(drag.resize){if(['time','date','timer','gps'].includes(e.type))e.size=Math.max(8,Math.min(50,drag.size+(p.x-(e.x+drag.dx))/2));else{e.w=Math.max(10,drag.w+p.x-(e.x+drag.dx));e.h=Math.max(2,drag.h+p.y-(e.y+drag.dy))}}else{e.x=p.x-drag.dx;e.y=p.y-drag.dy}draw();refresh()}function endDrag(){drag=null}canvas.addEventListener('mousedown',beginDrag);canvas.addEventListener('touchstart',beginDrag,{passive:false});window.addEventListener('mousemove',moveDrag);window.addEventListener('touchmove',moveDrag,{passive:false});window.addEventListener('mouseup',endDrag);window.addEventListener('touchend',endDrag);
 const promptCanvas=$('promptStage'),promptCtx=promptCanvas.getContext('2d');let running=false,promptPosition=0,lastTime=0;function drawPrompt(){promptCtx.fillStyle='#000';promptCtx.fillRect(0,0,W,H);promptCtx.fillStyle='#fff';const scale=textScale(+$('font').value),text=clean($('promptText').value);if($('direction').value==='left')drawBitmapScaled(promptCtx,text,W-promptPosition,(H-7*scale)/2,scale);else drawBitmapScaled(promptCtx,text,0,H-promptPosition,scale)}function promptLoop(time){if(!running)return;if(lastTime)promptPosition+=(time-lastTime)*+$('speed').value/1000;lastTime=time;drawPrompt();queueFrame(promptCanvas);requestAnimationFrame(promptLoop)}$('play').onclick=()=>{running=true;lastTime=0;requestAnimationFrame(promptLoop)};$('pause').onclick=()=>{running=false};$('reset').onclick=()=>{promptPosition=0;drawPrompt();send(promptCanvas)};
