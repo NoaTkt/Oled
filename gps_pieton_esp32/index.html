@@ -143,7 +143,7 @@ const canvas=$('stage'),ctx=canvas.getContext('2d');let items=[],nextId=1,select
 function textOf(e){const d=new Date();if(e.type==='text')return e.text;if(e.type==='time')return String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0')+':'+String(d.getSeconds()).padStart(2,'0');if(e.type==='date')return String(d.getDate()).padStart(2,'0')+'/'+String(d.getMonth()+1).padStart(2,'0')+'/'+d.getFullYear();const n=Math.max(0,Math.ceil((e.end-Date.now())/1000));return String(Math.floor(n/60)).padStart(2,'0')+':'+String(n%60).padStart(2,'0')}
 function wrapText(value,scale,maxWidth){const words=clean(value).split(' ').filter(w=>w.length>0);if(!words.length)return[''];const lines=[];let current='';const fits=s=>bitmapWidth(s,scale)<=maxWidth;words.forEach(word=>{if(!fits(word)){if(current){lines.push(current);current=''}let piece='';for(const ch of word){if(!piece||fits(piece+ch))piece+=ch;else{lines.push(piece);piece=ch}}word=piece}if(!current)current=word;else if(fits(current+' '+word))current=current+' '+word;else{lines.push(current);current=word}});if(current)lines.push(current);return lines.length?lines:['']}
 function drawBitmapTextWrapped(value,x,y,scale,maxWidth){const lines=wrapText(value,scale,maxWidth),lineHeight=Math.ceil(8*scale);lines.forEach((line,i)=>drawBitmapText(line,x,y+i*lineHeight,scale))}
-function bounds(e){if(e.type==='text'){const scale=textScale(e.size),w=Math.max(10,e.w||30),lines=wrapText(textOf(e),scale,w),lineHeight=Math.ceil(8*scale);return{x:e.x,y:e.y,w:w,h:Math.max(lineHeight,lines.length*lineHeight)}}if(['time','date','timer'].includes(e.type)){const scale=textScale(e.size);return{x:e.x,y:e.y,w:Math.max(5,bitmapWidth(textOf(e),scale)),h:7*scale}}if(e.type==='gps'){const arrowSize=e._manualArrowSize?e.arrowSize:(e.size||18),digitSize=e.digitSize||1,alignmentSize=e.alignmentSize||8,alignmentX=e.alignmentX||0,alignmentY=e.alignmentY||0,label=e.distance==null?'---':Math.round(e.distance)+' m',labelW=bitmapWidth(label,digitSize),cx=e.x+arrowSize/2,acx=e.x+arrowSize+2+alignmentSize/2+alignmentX,acy=e.y+alignmentSize/2+alignmentY,ar=alignmentSize/2+3,minX=Math.min(e.x,cx-labelW/2,acx-ar),maxX=Math.max(e.x+arrowSize,cx+labelW/2,acx+ar),minY=Math.min(e.y,acy-ar),maxY=Math.max(e.y+arrowSize+1+7*digitSize,acy+ar);return{x:minX,y:minY,w:maxX-minX,h:maxY-minY}}return{x:e.x,y:e.y,w:e.w||5,h:e.h||5}}
+function bounds(e){if(e.type==='text'){const scale=textScale(e.size),w=Math.max(10,e.w||30),lines=wrapText(textOf(e),scale,w),lineHeight=Math.ceil(8*scale);return{x:e.x,y:e.y,w:w,h:Math.max(lineHeight,lines.length*lineHeight)}}if(['time','date','timer'].includes(e.type)){const scale=textScale(e.size);return{x:e.x,y:e.y,w:Math.max(5,bitmapWidth(textOf(e),scale)),h:7*scale}}if(e.type==='gps'){const arrowSize=e._manualArrowSize?e.arrowSize:(e.size||18),digitSize=e.digitSize||1,alignmentSize=e.alignmentSize||8,alignmentX=e.alignmentX||0,alignmentY=e.alignmentY||0,label=e.distance==null?'---':Math.round(e.distance)+' m',labelW=bitmapWidth(label,digitSize),cx=e.x+arrowSize/2,acx=e.x+arrowSize+2+alignmentSize/2+alignmentX,acy=e.y+alignmentSize/2+alignmentY,ar=alignmentSize/2+3,minX=Math.min(e.x,cx-labelW/2,acx-ar),maxX=Math.max(e.x+arrowSize,cx+labelW/2,acx-ar),minY=Math.min(e.y,acy-ar),maxY=Math.max(e.y+arrowSize+1+7*digitSize,acy+ar);return{x:minX,y:minY,w:maxX-minX,h:maxY-minY}}return{x:e.x,y:e.y,w:e.w||5,h:e.h||5}}
 function drawArrow(e){const arrowSize=e._manualArrowSize?e.arrowSize:(e.size||18),digitSize=e.digitSize||1,cx=e.x+arrowSize/2,top=e.y+2,bottom=e.y+arrowSize-2,turnY=e.y+arrowSize*.55,turn=e.turn||'straight';ctx.lineWidth=1;ctx.lineCap='round';ctx.lineJoin='round';ctx.beginPath();ctx.moveTo(cx,bottom);if(turn.includes('left')){ctx.lineTo(cx,turnY);ctx.lineTo(e.x+3,turnY)}else if(turn.includes('right')){ctx.lineTo(cx,turnY);ctx.lineTo(e.x+arrowSize-3,turnY)}else{ctx.lineTo(cx,top+5)}ctx.stroke();const tipX=turn.includes('left')?e.x+2:turn.includes('right')?e.x+arrowSize-2:cx,tipY=turn==='straight'?top:turnY;ctx.beginPath();if(turn.includes('left')){ctx.moveTo(tipX,tipY);ctx.lineTo(tipX+4,tipY-3);ctx.lineTo(tipX+4,tipY+3)}else if(turn.includes('right')){ctx.moveTo(tipX,tipY);ctx.lineTo(tipX-4,tipY-3);ctx.lineTo(tipX-4,tipY+3)}else{ctx.moveTo(tipX,tipY);ctx.lineTo(tipX-3,tipY+4);ctx.lineTo(tipX+3,tipY+4)}ctx.closePath();ctx.fill();const label=e.distance==null?'---':Math.round(e.distance)+' m';drawBitmapScaled(ctx,label,cx-bitmapWidth(label)*digitSize/2,e.y+arrowSize+1,digitSize)}
 
 function drawAlignmentArrow(e){
@@ -152,22 +152,23 @@ function drawAlignmentArrow(e){
   const cx = e.x + mainSize + 2 + size / 2 + (e.alignmentX || 0);
   const cy = e.y + size / 2 + (e.alignmentY || 0);
   
-  let ang = Number(e.alignmentAngle) || 0;
-  const turn = e.turn || 'straight';
+  let angle = (e.alignmentAngle || 0) % 360;
+  if (angle < 0) angle += 360;
 
-  // Projection exacte écran : inverse la direction horizontale en cas de virage à gauche
-  const rad = radAngle(ang);
+  const rad = radAngle(angle);
   let ux = Math.sin(rad);
   let uy = -Math.cos(rad);
 
-  if (turn.includes('left') || ang < 0) {
-    ux = -Math.abs(ux);
-  } else if (turn.includes('right')) {
-    ux = Math.abs(ux);
+  const turn = e.turn || 'straight';
+  
+  // Inversion de la direction seulement en cas de virage à gauche
+  if (turn.includes('left')) {
+    ux = -ux;
+    uy = -uy;
   }
 
-  const px = -uy;
-  const py = ux;
+  const px = Math.cos(rad);
+  const py = Math.sin(rad);
 
   const len = Math.max(3, size / 2 - 1);
   const tipX = cx + len * ux;
