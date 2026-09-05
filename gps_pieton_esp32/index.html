@@ -43,8 +43,6 @@ function distance(a,b,c,d){const x=rad(c-a),y=rad(d-b),q=Math.sin(x/2)**2+Math.c
 function bearing(a,b,c,d){return(deg(Math.atan2(Math.sin(rad(d-b))*Math.cos(rad(c)),Math.cos(rad(a))*Math.sin(rad(c))-Math.sin(rad(a))*Math.cos(rad(c))*Math.cos(rad(d-b))))+360)%360}
 const map=L.map('map').setView([44.558,4.755],15);L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'© OpenStreetMap'}).addTo(map);
 
-let lastPosition=null;
-
 if (navigator.geolocation) {
   navigator.geolocation.getCurrentPosition(p => {
     lastPosition = p;
@@ -69,6 +67,7 @@ map.on('click', async e => {
   await setDestinationLatLng(e.latlng);
 });
 
+// Auto-complétion simplifiée (Voie, Ville, Pays) + Localisée
 let searchTimeout = null;
 $('addressInput').addEventListener('input', () => {
   clearTimeout(searchTimeout);
@@ -83,17 +82,14 @@ $('addressInput').addEventListener('input', () => {
 
   searchTimeout = setTimeout(async () => {
     try {
-      let url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=7&addressdetails=1&dedupe=1`;
+      let url = `https://nominatim.openstreetmap.org/search?format=json&addressdetails=1&q=${encodeURIComponent(query)}&limit=5`;
       
       if (lastPosition) {
         const lat = lastPosition.coords.latitude;
         const lon = lastPosition.coords.longitude;
-        
-        const delta = 0.5;
-        const minLon = lon - delta, maxLon = lon + delta;
-        const minLat = lat - delta, maxLat = lat + delta;
-        
-        url += `&lat=${lat}&lon=${lon}&viewbox=${minLon},${maxLat},${maxLon},${minLat}`;
+        const minLon = lon - 0.5, maxLon = lon + 0.5;
+        const minLat = lat - 0.5, maxLat = lat + 0.5;
+        url += `&viewbox=${minLon},${maxLat},${maxLon},${minLat}`;
       }
 
       const res = await fetch(url);
@@ -107,21 +103,22 @@ $('addressInput').addEventListener('input', () => {
 
       list.style.display = 'flex';
       data.forEach(item => {
-        const li = document.createElement('li');
-        
         const addr = item.address || {};
-        const road = addr.road || addr.pedestrian || addr.suburb || item.display_name.split(',')[0];
+        const road = addr.road || addr.pedestrian || addr.footway || addr.path || addr.street || addr.suburb || item.name || '';
         const city = addr.city || addr.town || addr.village || addr.municipality || '';
-        const postcode = addr.postcode ? ` (${addr.postcode})` : '';
-        
-        li.textContent = city ? `${road}, ${city}${postcode}` : item.display_name;
-        
+        const country = addr.country || '';
+
+        const cleanParts = [road, city, country].filter(p => p.trim() !== '');
+        const shortLabel = cleanParts.length > 0 ? cleanParts.join(', ') : item.display_name.split(',').slice(0, 3).join(',');
+
+        const li = document.createElement('li');
+        li.textContent = shortLabel;
         li.onclick = async () => {
-          const itemLat = parseFloat(item.lat);
-          const itemLon = parseFloat(item.lon);
-          const latlng = L.latLng(itemLat, itemLon);
+          const lat = parseFloat(item.lat);
+          const lon = parseFloat(item.lon);
+          const latlng = L.latLng(lat, lon);
           map.setView(latlng, 16);
-          $('addressInput').value = li.textContent;
+          $('addressInput').value = shortLabel;
           await setDestinationLatLng(latlng);
           list.style.display = 'none';
         };
@@ -137,7 +134,7 @@ function maneuverLabel(step){const type=step?.maneuver?.type,modifier=step?.mane
 function updateRouteInstruction(lat,lon){if(!routeSteps.length)return null;let best=currentStep,bestDistance=Infinity;for(let i=Math.max(0,currentStep);i<routeSteps.length;i++){const location=routeSteps[i].maneuver?.location;if(!location)continue;const d=distance(lat,lon,location[1],location[0]);if(d<bestDistance){bestDistance=d;best=i}if(i>currentStep+2&&d>bestDistance+80)break}currentStep=Math.max(currentStep,best);const step=routeSteps[currentStep],location=step?.maneuver?.location;if(!step||!location)return null;return{distance:distance(lat,lon,location[1],location[0]),angle:maneuverAngle(step),label:maneuverLabel(step),modifier:step.maneuver?.modifier||'straight'}}
 function orientation(e){heading=e.webkitCompassHeading!==undefined?e.webkitCompassHeading:e.alpha===null?null:(360-e.alpha)%360}
 function updateGpsElements(){if(!lastPosition||!destination)return;const a=lastPosition.coords.latitude,b=lastPosition.coords.longitude,instruction=updateRouteInstruction(a,b),d=instruction?instruction.distance:distance(a,b,destination.lat,destination.lng);let angle=instruction?instruction.angle:bearing(a,b,destination.lat,destination.lng),alignment=instruction?.angle||bearing(a,b,destination.lat,destination.lng);if(heading!==null){if(!instruction)angle=(angle-heading+360)%360;alignment=(alignment-heading+360)%360}items.filter(e=>e.type==='gps').forEach(e=>{e.distance=d;e.angle=angle;e.alignmentAngle=alignment;e.turn=instruction?.modifier||'straight';e.instruction=instruction?.label||'Itineraire en attente'});if(instruction)$('gpsStatus').textContent=instruction.label+' dans '+Math.round(d)+' m';draw()}
-
+let lastPosition=null;
 $('start').onclick=async()=>{if(!connectMqtt())return;if(typeof DeviceOrientationEvent!=='undefined'&&typeof DeviceOrientationEvent.requestPermission==='function'){try{await DeviceOrientationEvent.requestPermission()}catch(error){}}window.addEventListener('deviceorientation',orientation,true);window.addEventListener('deviceorientationabsolute',orientation,true);watchId=navigator.geolocation.watchPosition(position,error=>{$('gpsStatus').textContent='Erreur GPS : '+error.message},{enableHighAccuracy:true,maximumAge:1000,timeout:15000});$('start').disabled=true;$('stop').disabled=false;$('gpsStatus').textContent='Recherche de la position...'};
 async function position(p){lastPosition=p;const a=p.coords.latitude,b=p.coords.longitude;if(meMarker)meMarker.setLatLng([a,b]);else{meMarker=L.circleMarker([a,b],{radius:6,color:'blue'}).addTo(map);map.setView([a,b])}if(!destination){$('gpsStatus').textContent='Choisissez une destination.';return}if(!route)await requestRoute(p);updateGpsElements();const gps=items.find(e=>e.type==='gps');publish(gpsTopic(),JSON.stringify({d:Math.round(gps?.distance||0),a:Math.round(gps?.angle||0),turn:gps?.turn||'straight',instruction:gps?.instruction||''}));}
 $('stop').onclick=()=>{if(watchId!==null){navigator.geolocation.clearWatch(watchId);watchId=null}window.removeEventListener('deviceorientation',orientation,true);window.removeEventListener('deviceorientationabsolute',orientation,true);$('start').disabled=false;$('stop').disabled=true;$('gpsStatus').textContent='GPS arrêté';setState(mqttClient&&mqttClient.connected?'MQTT sécurisé':'Déconnecté',mqttClient&&mqttClient.connected?'on':'')};
